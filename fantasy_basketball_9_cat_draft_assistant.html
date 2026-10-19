@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fantasy Basketball 9-Cat Draft Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // --- Mock Data: Top 130 Baseline Core Players ---
+    const MOCK_PLAYERS = [
+      { id: "p001", name: "Nikola Jokic", team: "DEN", positions: ["C"], yahooAdp: 1.1, stats: { pts: 26.4, reb: 12.4, ast: 9.0, stl: 1.4, blk: 0.9, tpm: 1.1, fgp: 0.583, fga: 15.7, ftp: 0.817, fta: 5.5, to: 3.0 } },
+      { id: "p002", name: "Giannis Antetokounmpo", team: "MIL", positions: ["PF", "C"], yahooAdp: 3.2, stats: { pts: 30.4, reb: 11.5, ast: 6.5, stl: 1.2, blk: 1.1, tpm: 0.5, fgp: 0.611, fga: 18.8, ftp: 0.657, fta: 10.7, to: 3.4 } },
+      { id: "p003", name: "Luka Doncic", team: "DAL", positions: ["PG"], yahooAdp: 2.5, stats: { pts: 33.9, reb: 9.2, ast: 9.8, stl: 1.4, blk: 0.5, tpm: 4.1, fgp: 0.487, fga: 23.6, ftp: 0.786, fta: 8.7, to: 4.0 } },
+      { id: "p004", name: "Shai Gilgeous-Alexander", team: "OKC", positions: ["PG"], yahooAdp: 4.1, stats: { pts: 30.1, reb: 5.5, ast: 6.2, stl: 2.0, blk: 0.9, tpm: 1.3, fgp: 0.535, fga: 19.8, ftp: 0.874, fta: 8.8, to: 2.2 } },
+      { id: "p005", name: "Joel Embiid", team: "PHI", positions: ["C"], yahooAdp: 5.3, stats: { pts: 34.7, reb: 11.0, ast: 5.6, stl: 1.2, blk: 1.7, tpm: 1.4, fgp: 0.529, fga: 21.8, ftp: 0.883, fta: 11.6, to: 3.8 } },
+      { id: "p006", name: "Jayson Tatum", team: "BOS", positions: ["SF", "PF"], yahooAdp: 6.2, stats: { pts: 26.9, reb: 8.1, ast: 4.9, stl: 1.0, blk: 0.6, tpm: 3.1, fgp: 0.471, fga: 19.3, ftp: 0.833, fta: 6.7, to: 2.5 } },
+      { id: "p007", name: "Tyrese Haliburton", team: "IND", positions: ["PG"], yahooAdp: 7.5, stats: { pts: 20.1, reb: 3.9, ast: 10.9, stl: 1.2, blk: 0.7, tpm: 2.8, fgp: 0.477, fga: 15.2, ftp: 0.855, fta: 3.3, to: 2.3 } },
+      { id: "p008", name: "Steph Curry", team: "GSW", positions: ["PG"], yahooAdp: 8.4, stats: { pts: 26.4, reb: 4.5, ast: 5.1, stl: 0.7, blk: 0.4, tpm: 4.8, fgp: 0.450, fga: 19.5, ftp: 0.923, fta: 4.4, to: 2.8 } },
+      { id: "p009", name: "Anthony Davis", team: "LAL", positions: ["PF", "C"], yahooAdp: 9.1, stats: { pts: 24.7, reb: 12.6, ast: 3.5, stl: 1.2, blk: 2.3, tpm: 0.4, fgp: 0.556, fga: 16.9, ftp: 0.816, fta: 6.8, to: 2.1 } },
+      { id: "p010", name: "Trae Young", team: "ATL", positions: ["PG"], yahooAdp: 10.3, stats: { pts: 25.7, reb: 2.8, ast: 10.8, stl: 1.3, blk: 0.2, tpm: 3.2, fgp: 0.430, fga: 18.7, ftp: 0.855, fta: 7.5, to: 4.4 } },
+      { id: "p022", name: "De'Aaron Fox", team: "SAC", positions: ["PG"], yahooAdp: 22.1, stats: { pts: 26.6, reb: 4.6, ast: 5.6, stl: 2.0, blk: 0.4, tpm: 2.6, fgp: 0.465, fga: 20.9, ftp: 0.738, fta: 5.7, to: 2.6 } },
+      { id: "p027", name: "Bam Adebayo", team: "MIA", positions: ["C"], yahooAdp: 27.4, stats: { pts: 19.3, reb: 10.4, ast: 3.9, stl: 1.1, blk: 1.0, tpm: 0.3, fgp: 0.521, fga: 14.3, ftp: 0.755, fta: 5.3, to: 2.3 } },
+      { id: "p040", name: "Rudy Gobert", team: "MIN", positions: ["C"], yahooAdp: 40.2, stats: { pts: 14.0, reb: 12.9, ast: 1.3, stl: 0.7, blk: 2.1, tpm: 0.0, fgp: 0.661, fga: 8.1, ftp: 0.638, fta: 5.2, to: 1.6 } },
+      { id: "p045", name: "Fred VanVleet", team: "HOU", positions: ["PG"], yahooAdp: 45.1, stats: { pts: 17.4, reb: 3.8, ast: 8.1, stl: 1.4, blk: 0.4, tpm: 3.1, fgp: 0.416, fga: 13.8, ftp: 0.860, fta: 3.5, to: 1.7 } }
+    ];
+
+    const CAT_KEYS = ['pts', 'reb', 'ast', 'stl', 'blk', 'tpm', 'fgp', 'ftp', 'to'];
+    const CAT_LABELS = { pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK', tpm: '3PM', fgp: 'FG%', ftp: 'FT%', to: 'TO' };
+
+    // --- Helper Functions ---
+    function computeBaseline(players) {
+      const mean = {}, stdDev = {};
+      const catVals = { pts:[], reb:[], ast:[], stl:[], blk:[], tpm:[], fgp:[], ftp:[], to:[] };
+      
+      const leagueFGP = players.reduce((s, p) => s + p.stats.fgp * p.stats.fga, 0) / players.reduce((s, p) => s + p.stats.fga, 0);
+      const leagueFTP = players.reduce((s, p) => s + p.stats.ftp * p.stats.fta, 0) / players.reduce((s, p) => s + p.stats.fta, 0);
+
+      players.forEach(p => {
+        ['pts','reb','ast','stl','blk','tpm','to'].forEach(c => catVals[c].push(p.stats[c]));
+        catVals.fgp.push((p.stats.fgp - leagueFGP) * p.stats.fga);
+        catVals.ftp.push((p.stats.ftp - leagueFTP) * p.stats.fta);
+      });
+
+      CAT_KEYS.forEach(c => {
+        const vals = catVals[c];
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const varc = vals.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / vals.length;
+        mean[c] = avg;
+        stdDev[c] = Math.sqrt(varc) || 1;
+      });
+
+      return { mean, stdDev };
+    }
+
+    function computeZScore(player, baseline, punts = []) {
+      const zScores = {};
+      let totalZ = 0, puntZ = 0;
+
+      CAT_KEYS.forEach(c => {
+        let raw = player.stats[c];
+        if (c === 'fgp') raw = (player.stats.fgp - 0.48) * player.stats.fga;
+        if (c === 'ftp') raw = (player.stats.ftp - 0.78) * player.stats.fta;
+
+        let z = (raw - baseline.mean[c]) / baseline.stdDev[c];
+        if (c === 'to') z = -z; // Lower TO = higher Z
+
+        zScores[c] = Number(z.toFixed(2));
+        totalZ += z;
+        if (!punts.includes(c)) puntZ += z;
+      });
+
+      return {
+        ...player,
+        zScores,
+        totalZScore: Number(totalZ.toFixed(2)),
+        puntZScore: Number(puntZ.toFixed(2))
+      };
+    }
+
+    // --- Main App Component ---
+    function App() {
+      const [teamCount, setTeamCount] = useState(12);
+      const [draftPos, setDraftPos] = useState(3);
+      const [selectedPlayerIds, setSelectedPlayerIds] = useState([]);
+      const [activePunts, setActivePunts] = useState([]);
+
+      const baseline = useMemo(() => computeBaseline(MOCK_PLAYERS), []);
+
+      const processedPlayers = useMemo(() => {
+        return MOCK_PLAYERS.map(p => computeZScore(p, baseline, activePunts));
+      }, [baseline, activePunts]);
+
+      // Calculate Pick Numbers for R1-R3
+      const picks = useMemo(() => {
+        const p1 = draftPos;
+        const p2 = teamCount * 2 - draftPos + 1;
+        const p3 = teamCount * 2 + draftPos;
+        return [
+          { round: 1, pick: p1 },
+          { round: 2, pick: p2 },
+          { round: 3, pick: p3 }
+        ];
+      }, [teamCount, draftPos]);
+
+      const myTeam = useMemo(() => {
+        return selectedPlayerIds.map(id => processedPlayers.find(p => p.id === id)).filter(Boolean);
+      }, [selectedPlayerIds, processedPlayers]);
+
+      // Diagnosis Logic
+      const diagnosis = useMemo(() => {
+        if (myTeam.length < 3) return { punts: [], summary: {} };
+        const summary = { pts:0, reb:0, ast:0, stl:0, blk:0, tpm:0, fgp:0, ftp:0, to:0 };
+        myTeam.forEach(p => {
+          CAT_KEYS.forEach(c => summary[c] += p.zScores[c]);
+        });
+        const punts = CAT_KEYS.filter(c => summary[c] <= -1.8);
+        return { punts, summary };
+      }, [myTeam]);
+
+      const availablePlayers = useMemo(() => {
+        return processedPlayers
+          .filter(p => !selectedPlayerIds.includes(p.id))
+          .sort((a, b) => b.puntZScore - a.puntZScore);
+      }, [processedPlayers, selectedPlayerIds]);
+
+      const toggleSelectPlayer = (id) => {
+        if (selectedPlayerIds.includes(id)) {
+          setSelectedPlayerIds(selectedPlayerIds.filter(i => i !== id));
+        } else if (selectedPlayerIds.length < 3) {
+          setSelectedPlayerIds([...selectedPlayerIds, id]);
+        }
+      };
+
+      const togglePunt = (cat) => {
+        if (activePunts.includes(cat)) {
+          setActivePunts(activePunts.filter(c => c !== cat));
+        } else {
+          setActivePunts([...activePunts, cat]);
+        }
+      };
+
+      return (
+        <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+          {/* Header */}
+          <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800 p-4 rounded-xl border border-slate-700 gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-emerald-400">🏀 9-Cat Draft Assistant</h1>
+              <p className="text-xs text-slate-400">Minimalist Fantasy Basketball Strategy Engine (Top 130 Baseline)</p>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <span className="text-slate-300">Teams:</span>
+                <select value={teamCount} onChange={e => setTeamCount(Number(e.target.value))} className="bg-slate-700 rounded px-2 py-1 text-white border border-slate-600">
+                  <option value={10}>10</option>
+                  <option value={12}>12</option>
+                  <option value={14}>14</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2">
+                <span className="text-slate-300">Your Draft Pick:</span>
+                <select value={draftPos} onChange={e => setDraftPos(Number(e.target.value))} className="bg-slate-700 rounded px-2 py-1 text-white border border-slate-600">
+                  {Array.from({ length: teamCount }, (_, i) => i + 1).map(num => (
+                    <option key={num} value={num}>#{num}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </header>
+
+          {/* Top Section: Picks & Diagnosis */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card 1: My First 3 Rounds Picks */}
+            <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-slate-200">📥 Step 1: Pick Core Anchors (Rounds 1-3)</h2>
+                <span className="text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded">
+                  Picks: #{picks[0].pick}, #{picks[1].pick}, #{picks[2].pick}
+                </span>
+              </div>
+              
+              <div className="space-y-2">
+                {myTeam.map((player, index) => (
+                  <div key={player.id} className="flex justify-between items-center bg-slate-700/50 p-2.5 rounded border border-slate-600">
+                    <div>
+                      <span className="text-xs text-slate-400 font-mono mr-2">Pick #{picks[index].pick}</span>
+                      <span className="font-bold">{player.name}</span>
+                      <span className="text-xs text-slate-400 ml-2">({player.positions.join('/')})</span>
+                    </div>
+                    <button onClick={() => toggleSelectPlayer(player.id)} className="text-xs text-rose-400 hover:underline">Remove</button>
+                  </div>
+                ))}
+
+                {myTeam.length < 3 && (
+                  <div className="p-3 border border-dashed border-slate-600 rounded text-center text-xs text-slate-400">
+                    Select {3 - myTeam.length} more player(s) from the list below to unlock strategy diagnosis.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Card 2: Auto Strategy Diagnostic */}
+            <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+              <h2 className="text-lg font-semibold text-slate-200">💡 Step 2: Auto Strategy Diagnostic</h2>
+
+              {myTeam.length === 3 ? (
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-slate-400 mb-1">Recommended Punt Categories:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {diagnosis.punts.length > 0 ? (
+                        diagnosis.punts.map(cat => (
+                          <span key={cat} className="bg-rose-950 text-rose-300 border border-rose-800 px-2.5 py-1 rounded text-xs font-bold">
+                            Punt {CAT_LABELS[cat]} (Score: {diagnosis.summary[cat].toFixed(1)})
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-emerald-400">Balanced Build (No hard punt needed)</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => setActivePunts(diagnosis.punts)}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs rounded transition text-white"
+                  >
+                    👉 Apply Recommended Strategy ({diagnosis.punts.map(c => CAT_LABELS[c]).join(' & ') || 'None'})
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 py-4">
+                  Complete your first 3 picks to receive automated 9-Cat Punt recommendations based on Z-Score deficits.
+                </p>
+              )}
+
+              {/* Punt Filter Toggles */}
+              <div className="pt-2 border-t border-slate-700">
+                <div className="text-xs text-slate-400 mb-2">Active Punt Filter (Toggle Manually):</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {CAT_KEYS.map(cat => {
+                    const active = activePunts.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => togglePunt(cat)}
+                        className={`px-2 py-0.5 rounded text-xs border transition ${
+                          active 
+                            ? 'bg-rose-600 border-rose-500 text-white font-bold' 
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        {CAT_LABELS[cat]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Table: Available Players */}
+          <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-slate-200">📋 Step 3: Remaining Players Ranking (Rounds 4-13)</h2>
+              <span className="text-xs text-slate-400">Sorted by: <span className="text-emerald-400 font-bold">Punt Z-Score</span></span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-400 font-mono">
+                    <th className="p-2">ADP</th>
+                    <th className="p-2">Player</th>
+                    <th className="p-2">Pos</th>
+                    <th className="p-2 text-right">Base Z</th>
+                    <th className="p-2 text-right text-emerald-400">Punt Z</th>
+                    <th className="p-2 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/50">
+                  {availablePlayers.map(player => (
+                    <tr key={player.id} className="hover:bg-slate-700/30 transition">
+                      <td className="p-2 font-mono text-slate-400">#{player.yahooAdp}</td>
+                      <td className="p-2 font-bold text-slate-100">{player.name} <span className="text-slate-400 font-normal">({player.team})</span></td>
+                      <td className="p-2 text-slate-300">{player.positions.join('/')}</td>
+                      <td className="p-2 text-right font-mono text-slate-400">{player.totalZScore}</td>
+                      <td className="p-2 text-right font-mono font-bold text-emerald-400">{player.puntZScore}</td>
+                      <td className="p-2 text-center">
+                        <button
+                          onClick={() => toggleSelectPlayer(player.id)}
+                          disabled={selectedPlayerIds.length >= 3 && !selectedPlayerIds.includes(player.id)}
+                          className="px-2.5 py-1 bg-slate-700 hover:bg-emerald-600 disabled:opacity-40 disabled:hover:bg-slate-700 text-white rounded transition text-xs"
+                        >
+                          {selectedPlayerIds.includes(player.id) ? 'Deselect' : 'Draft to Core'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
